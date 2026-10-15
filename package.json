@@ -9,8 +9,9 @@
   },
   "scripts": {
     "start": "node --experimental-strip-types src/server.ts",
+    "web": "node --experimental-strip-types src/server.ts",
     "demo": "node --experimental-strip-types src/server.ts",
-    "test": "node --experimental-strip-types --test test/voice.test.ts"
+    "test": "node --experimental-strip-types --test test/voice.test.ts test/web-demo.test.ts"
   },
   "dependencies": {
     "ws": "^8.18.3"
