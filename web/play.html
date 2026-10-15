@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#87ceeb" />
+  <title>和 Maple 玩 · 不用安装</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%233d8c40'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/demo.css" />
+</head>
+<body class="play-body">
+  <header>
+    <div class="titles">
+      <strong>和 Maple 玩</strong>
+      <span id="maple-state">穿红衣服的 Maple 站在旁边</span>
+    </div>
+    <button id="follow" type="button">跟我来</button>
+    <a href="/">介绍</a>
+  </header>
+  <div class="stage">
+    <canvas id="view" aria-label="方块世界。在画面上滑动来转身。"></canvas>
+    <p class="how">
+      滑动画面转身。点「前、左、后、右」走路，点「跳」跳起来。在下面打英语。
+      <span lang="en">Drag to look. Tap the arrows to walk. Type English below. No keyboard needed.</span>
+    </p>
+    <div class="cross" aria-hidden="true"></div>
+    <p id="looking">看着：四周</p>
+  </div>
+  <div class="dock">
+    <div class="pad" role="group" aria-label="移动按钮">
+      <button type="button" data-move="forward" aria-label="向前">前<small>W</small></button>
+      <button type="button" data-move="left" aria-label="向左">左<small>A</small></button>
+      <button type="button" data-move="jump" aria-label="跳跃">跳<small>Jump</small></button>
+      <button type="button" data-move="right" aria-label="向右">右<small>D</small></button>
+      <button type="button" data-move="back" aria-label="向后">后<small>S</small></button>
+    </div>
+    <div class="chat">
+      <div id="log" aria-live="polite">
+        <div class="bubble maple">Maple：Hi! I'm Maple. Drag the picture to look, tap 前 to walk, then tell me what you see.（你好。滑动画面转身，点「前」走路，再说说你看到什么。）</div>
+      </div>
+      <form id="composer">
+        <label class="fine" for="line">和 Maple 说英语</label>
+        <input id="line" name="line" maxlength="400" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" placeholder="打英语，例如 I see a tree" />
+        <button type="submit">发送</button>
+      </form>
+      <div class="chips">
+        <button type="button" data-say="Follow me">跟我来 Follow me</button>
+        <button type="button" data-say="What is a creeper?">creeper 是什么</button>
+        <button type="button" data-say="I see a tree.">I see a tree</button>
+        <button type="button" data-say="我的镐坏了怎么说">镐坏了怎么说</button>
+        <button type="button" id="look-block">说说我看着的方块</button>
+      </div>
+      <p class="fine" id="tutor-mode">本地英语陪练，不需要账号或密钥。</p>
+      <p class="fine keyboard-note">如果这台设备有键盘，也可以用 W A S D 移动、空格跳跃。没有键盘就用上面的按钮。</p>
+    </div>
+  </div>
+  <script type="module" src="/client/play.ts"></script>
+</body>
+</html>

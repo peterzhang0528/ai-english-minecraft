@@ -186,6 +186,11 @@ test("tracked files keep DOUBAO_* placeholders and do not contain a filled token
     "DEMO.md",
     "README.md",
     ".env.example",
+    "web/play.html",
+    "web/index.html",
+    "src/tutor/local.ts",
+    "Dockerfile",
+    "fly.toml",
   ];
   for (const relative of required) {
     assert.equal(fs.existsSync(path.join(root, relative)), true, relative);

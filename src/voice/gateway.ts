@@ -6,6 +6,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { missingCredentials, type DoubaoConfig } from "./config.ts";
 import { VoiceRelay } from "./relay.ts";
 import type { Upstream } from "./connect.ts";
+import { tutorReply, type TutorSettings } from "../tutor/reply.ts";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -20,6 +21,45 @@ export interface MapleServerOptions {
   webRoot: string;
   config: DoubaoConfig;
   openUpstream?: (config: DoubaoConfig) => Promise<Upstream>;
+  tutor?: TutorSettings;
+}
+
+const PAGES: Record<string, string> = {
+  "/": "/index.html",
+  "/play": "/play.html",
+  "/voice": "/voice.html",
+};
+
+function readJson(req: http.IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let failed = false;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > 16_000) {
+        failed = true;
+        reject(new Error("too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (failed) return;
+      const text = Buffer.concat(chunks).toString("utf8");
+      if (!text) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(text));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on("error", reject);
+  });
 }
 
 function safeFile(root: string, urlPath: string): string | null {
@@ -50,20 +90,44 @@ function serveFile(root: string, reqPath: string, res: http.ServerResponse): voi
 }
 
 export function createMapleServer(options: MapleServerOptions): http.Server {
-  const server = http.createServer((req, res) => {
-    const url = new URL(req.url || "/", "http://localhost");
-    if (url.pathname === "/health") {
-      const missing = missingCredentials(options.config);
-      res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({
-        ok: true,
-        mock: options.config.mock,
-        credentials: missing.length === 0,
-        missing,
-      }));
-      return;
+  const tutor = options.tutor ?? { apiKey: "", model: "claude-haiku-4-5" };
+  const server = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url || "/", "http://localhost");
+      const pathname = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
+      if (pathname === "/health") {
+        const missing = missingCredentials(options.config);
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.end(JSON.stringify({
+          ok: true,
+          mock: options.config.mock,
+          credentials: missing.length === 0,
+          missing,
+          tutor: tutor.apiKey ? "anthropic" : "local",
+        }));
+        return;
+      }
+      if (pathname === "/api/tutor") {
+        if (req.method !== "POST") {
+          res.writeHead(405, { "content-type": "application/json; charset=utf-8", allow: "POST" });
+          res.end(JSON.stringify({ error: "Use POST" }));
+          return;
+        }
+        const body = await readJson(req);
+        const text = body && typeof body === "object" && typeof (body as { text?: unknown }).text === "string"
+          ? (body as { text: string }).text
+          : "";
+        const reply = await tutorReply(text, tutor);
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        res.end(JSON.stringify(reply));
+        return;
+      }
+      serveFile(options.webRoot, PAGES[pathname] || pathname, res);
+    } catch {
+      if (res.headersSent) return;
+      res.writeHead(400, { "content-type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: "无法读取这句话" }));
     }
-    serveFile(options.webRoot, url.pathname, res);
   });
 
   const wss = new WebSocketServer({ noServer: true });
