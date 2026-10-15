@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maple · Minecraft 英语伴学</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --grass: #3d8c40;
+      --grass-dark: #245c28;
+      --dirt: #8b5a2b;
+      --paper: #f6f3ea;
+      --ink: #1d2418;
+      --card: #fffdf8;
+      --line: #e4dcc8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      background: linear-gradient(180deg, #87ceeb 0 140px, var(--grass) 140px 220px, var(--paper) 220px);
+      color: var(--ink);
+    }
+    main { max-width: 920px; margin: 0 auto; padding: 28px 16px 48px; }
+    header h1 { margin: 0 0 6px; font-size: 2rem; color: #143018; }
+    header p { margin: 0; max-width: 40rem; }
+    .panel {
+      margin-top: 18px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(36, 48, 20, 0.08);
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button, input {
+      font: inherit;
+      border-radius: 999px;
+      border: 1px solid var(--grass-dark);
+    }
+    button {
+      background: var(--grass);
+      color: white;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    button.secondary { background: white; color: var(--grass-dark); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    input { flex: 1; min-width: 180px; padding: 10px 14px; background: white; }
+    #status { min-height: 1.4em; font-weight: 600; }
+    #log {
+      min-height: 180px;
+      max-height: 320px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bubble { padding: 8px 12px; border-radius: 12px; background: #eef6ea; }
+    .bubble.me { background: #fff4d6; align-self: flex-end; }
+    .card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+    .card li { margin: 4px 0; }
+    footer { margin-top: 16px; color: #4d5644; font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Maple · Minecraft 英语伴学</h1>
+      <p>和 Maple 用英语聊聊方块、怪物和工具。豆包负责实时语音，密钥只留在运行这个网页的电脑上。</p>
+    </header>
+    <section class="panel">
+      <div class="row">
+        <button id="call">开始通话</button>
+        <button id="stop" class="secondary" disabled>结束</button>
+        <button id="quiz" class="secondary">考我一题</button>
+        <button id="creeper" class="secondary">creeper 是什么</button>
+        <button id="phrase" class="secondary">「我的镐坏了」怎么说</button>
+      </div>
+      <p id="status">还没有开始。允许麦克风后，就可以直接说英语。</p>
+    </section>
+    <section class="panel card">
+      <h2 id="card-title">单词卡</h2>
+      <ul id="card-lines"><li>点「creeper 是什么」或说 What is a creeper?</li></ul>
+    </section>
+    <section class="panel">
+      <div id="log" aria-live="polite"></div>
+      <form id="composer" class="row" style="margin-top: 12px">
+        <input id="text" placeholder="打一句英语，例如 I need a wooden pickaxe" autocomplete="off" />
+        <button type="submit">发送</button>
+      </form>
+    </section>
+    <footer>
+      课堂演示见 DEMO.md。没有试用额度时，可以在 .env 里写 DOUBAO_MOCK=1，先在本地排练。
+    </footer>
+  </main>
+  <script type="module">
+    import { MapleVoice } from "/client/voice.ts";
+
+    const voice = new MapleVoice();
+    const status = document.querySelector("#status");
+    const log = document.querySelector("#log");
+    const call = document.querySelector("#call");
+    const stop = document.querySelector("#stop");
+    const cardTitle = document.querySelector("#card-title");
+    const cardLines = document.querySelector("#card-lines");
+
+    function addBubble(text, mine) {
+      const item = document.createElement("div");
+      item.className = mine ? "bubble me" : "bubble";
+      item.textContent = text;
+      log.appendChild(item);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    voice.on((event) => {
+      if (event.type === "ready") status.textContent = "Maple 在听。用英语说说你在挖什么。";
+      if (event.type === "status" && event.text) status.textContent = event.text;
+      if (event.type === "error" && event.message) {
+        status.textContent = event.message;
+        addBubble(event.message, false);
+      }
+      if (event.type === "asr" && event.final && event.text) addBubble("你：" + event.text, true);
+      if (event.type === "chat" && event.text) addBubble("Maple：" + event.text, false);
+      if (event.type === "card") {
+        cardTitle.textContent = event.title || "单词卡";
+        cardLines.replaceChildren();
+        for (const line of event.lines || []) {
+          const li = document.createElement("li");
+          li.textContent = line;
+          cardLines.appendChild(li);
+        }
+      }
+    });
+
+    call.addEventListener("click", async () => {
+      call.disabled = true;
+      status.textContent = "正在连接…";
+      try {
+        await voice.startCall();
+        stop.disabled = false;
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "无法打开麦克风或语音网关";
+        call.disabled = false;
+      }
+    });
+    stop.addEventListener("click", () => {
+      voice.stop();
+      call.disabled = false;
+      stop.disabled = true;
+      status.textContent = "通话已结束。";
+    });
+    document.querySelector("#quiz").addEventListener("click", async () => {
+      await voice.connect();
+      voice.runTool("start_quiz", { topic: "mobs", seed: 7 });
+    });
+    document.querySelector("#creeper").addEventListener("click", async () => {
+      await voice.connect();
+      voice.sendText("What is a creeper?");
+    });
+    document.querySelector("#phrase").addEventListener("click", async () => {
+      await voice.connect();
+      voice.sendText("我的镐坏了怎么说");
+    });
+    document.querySelector("#composer").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const input = document.querySelector("#text");
+      const text = input.value.trim();
+      if (!text) return;
+      await voice.connect();
+      voice.sendText(text);
+      input.value = "";
+    });
+  </script>
+</body>
+</html>
